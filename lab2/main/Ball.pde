@@ -2,6 +2,7 @@ class Ball {
   PVector position;
   PVector velocity;
   float radius;
+  float maxSpeed = 7;
   color ballColor;
 
   Ball(float x, float y, float r) {
@@ -19,12 +20,19 @@ class Ball {
 
   void update() {
     position.add(velocity);
+    
+    // Ensure minimum speed
+    if (velocity.mag() < 3) {
+      velocity.setMag(3);
+    }
+    
+    // Limit maximum speed
+    velocity.limit(maxSpeed);
   }
 
   boolean checkBoundaryCollision() {
     boolean fellOff = false;
     
-    // Left and right walls
     if (position.x > width - radius) {
       position.x = width - radius;
       velocity.x *= -1;
@@ -33,13 +41,11 @@ class Ball {
       velocity.x *= -1;
     }
     
-    // Top wall
     if (position.y < radius) {
       position.y = radius;
       velocity.y *= -1;
     }
     
-    // Bottom - ball falls off
     if (position.y > height + radius) {
       fellOff = true;
     }
@@ -54,11 +60,16 @@ class Ball {
 
   void display() {
     noStroke();
+    
+    // Trail effect
+    fill(ballColor, 50);
+    ellipse(position.x - velocity.x, position.y - velocity.y, radius * 2, radius * 2);
+    
     fill(ballColor);
     ellipse(position.x, position.y, radius * 2, radius * 2);
     
     // Glow effect
-    fill(255, 255, 255, 100);
+    fill(255, 255, 255, 150);
     ellipse(position.x - 2, position.y - 2, radius, radius);
   }
 }
