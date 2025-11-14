@@ -10,6 +10,12 @@ ArrayList<Brick> bricks;
 int gameState = 0; // 0 = START, 1 = PLAY, 2 = GAME_OVER
 boolean ballLaunched = false;
 
+// Game statistics
+int score = 0;
+int lives = 3;
+int level = 1;
+int highScore = 0;
+
 void setup() {
   size(800, 600);
   frameRate(60);
@@ -25,6 +31,19 @@ void setup() {
 void draw() {
   background(20, 20, 40);
   
+  if (gameState == 0) {
+    // START screen
+    drawStartScreen();
+  } else if (gameState == 1) {
+    // PLAY
+    drawGame();
+  } else if (gameState == 2) {
+    // GAME OVER
+    drawGameOver();
+  }
+}
+
+void drawGame() {
   // Update and display bricks
   for (int i = bricks.size() - 1; i >= 0; i--) {
     Brick brick = bricks.get(i);
@@ -32,6 +51,7 @@ void draw() {
     
     // Check collision with ball
     if (ballLaunched && brick.checkCollision(ball)) {
+      score += 10;
       bricks.remove(i);
     }
   }
@@ -46,7 +66,21 @@ void draw() {
     ball.position.y = paddle.position.y - paddle.h/2 - ball.radius - 2;
   } else {
     ball.update();
-    ball.checkBoundaryCollision();
+    
+    // Check if ball fell off
+    if (ball.checkBoundaryCollision()) {
+      lives--;
+      ballLaunched = false;
+      ball.reset(paddle.position.x, paddle.position.y - paddle.h/2 - ball.radius - 2);
+      
+      if (lives <= 0) {
+        gameState = 2; // GAME OVER
+        if (score > highScore) {
+          highScore = score;
+        }
+      }
+    }
+    
     paddle.checkCollision(ball);
   }
   
@@ -56,7 +90,7 @@ void draw() {
   displayHUD();
   
   // Instructions
-  if (!ballLaunched) {
+  if (!ballLaunched && lives > 0) {
     fill(255, 255, 100);
     textAlign(CENTER);
     textSize(20);
@@ -68,10 +102,49 @@ void draw() {
     fill(100, 255, 100);
     textAlign(CENTER);
     textSize(32);
-    text("YOU WIN!", width/2, height/2);
+    text("LEVEL COMPLETE!", width/2, height/2);
     textSize(20);
-    text("Press R to restart", width/2, height/2 + 40);
+    text("Press SPACE for next level", width/2, height/2 + 40);
+    ballLaunched = false;
   }
+}
+
+void drawStartScreen() {
+  fill(100, 200, 255);
+  textAlign(CENTER);
+  textSize(48);
+  text("ARKANOID", width/2, height/2 - 50);
+  
+  textSize(20);
+  fill(255);
+  text("Press SPACE to start", width/2, height/2 + 20);
+  text("Controls: ← → or A D", width/2, height/2 + 50);
+  
+  if (highScore > 0) {
+    textSize(16);
+    fill(255, 255, 100);
+    text("High Score: " + highScore, width/2, height/2 + 90);
+  }
+}
+
+void drawGameOver() {
+  fill(255, 100, 100);
+  textAlign(CENTER);
+  textSize(48);
+  text("GAME OVER", width/2, height/2 - 50);
+  
+  textSize(24);
+  fill(255);
+  text("Final Score: " + score, width/2, height/2 + 20);
+  
+  if (score == highScore && score > 0) {
+    fill(255, 255, 100);
+    text("NEW HIGH SCORE!", width/2, height/2 + 50);
+  }
+  
+  textSize(20);
+  fill(200);
+  text("Press R to restart", width/2, height/2 + 90);
 }
 
 void initializeBricks() {
@@ -85,11 +158,11 @@ void initializeBricks() {
   float startY = 80;
   
   color[] rowColors = {
-    color(255, 100, 100),  // Red
-    color(255, 200, 100),  // Orange
-    color(255, 255, 100),  // Yellow
-    color(100, 255, 100),  // Green
-    color(100, 200, 255)   // Blue
+    color(255, 100, 100),
+    color(255, 200, 100),
+    color(255, 255, 100),
+    color(100, 255, 100),
+    color(100, 200, 255)
   };
   
   for (int row = 0; row < rows; row++) {
@@ -104,23 +177,46 @@ void initializeBricks() {
 void displayHUD() {
   fill(255);
   textAlign(LEFT);
-  textSize(16);
-  text("Arkanoid Game", 10, 25);
-  text("Bricks left: " + bricks.size(), 10, 45);
+  textSize(18);
+  text("Score: " + score, 10, 25);
+  text("Lives: " + lives, 10, 50);
+  text("Level: " + level, width - 100, 25);
+  
+  // Draw lives as hearts
+  for (int i = 0; i < lives; i++) {
+    fill(255, 100, 100);
+    ellipse(80 + i * 25, 60, 15, 15);
+  }
 }
 
 void keyPressed() {
   if (key == 'r' || key == 'R') {
+    score = 0;
+    lives = 3;
+    level = 1;
     ballLaunched = false;
+    gameState = 0;
     setup();
   }
   
-  if (key == ' ' && !ballLaunched) {
-    ball.launch();
-    ballLaunched = true;
+  if (key == ' ') {
+    if (gameState == 0) {
+      gameState = 1; // Start game
+    } else if (gameState == 1 && !ballLaunched) {
+      if (bricks.size() == 0) {
+        // Next level
+        level++;
+        lives = min(lives + 1, 5); // Bonus life
+        initializeBricks();
+      }
+      ball.launch();
+      ballLaunched = true;
+    }
   }
   
-  paddle.handleKeyPress();
+  if (gameState == 1) {
+    paddle.handleKeyPress();
+  }
 }
 
 void keyReleased() {
