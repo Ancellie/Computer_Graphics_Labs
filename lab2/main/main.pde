@@ -1,56 +1,54 @@
 /**
  * Arkanoid Game
  * Classic 2D brick-breaking arcade game
+ * with Power-ups!
  */
 
 Ball ball;
 Paddle paddle;
 ArrayList<Brick> bricks;
+ArrayList<PowerUp> powerUps;
 
-int gameState = 0; // 0 = START, 1 = PLAY, 2 = GAME_OVER
+int gameState = 0;
 boolean ballLaunched = false;
 
-// Game statistics
 int score = 0;
 int lives = 3;
 int level = 1;
 int highScore = 0;
-int difficulty = 1; // 1 = Easy, 2 = Medium, 3 = Hard
+int difficulty = 1;
+
+// Power-up timers
+int paddleExpandTimer = 0;
+int slowBallTimer = 0;
 
 void setup() {
   size(800, 600);
   frameRate(60);
   
-  // Initialize game objects
   ball = new Ball(width/2, height - 80, 10);
   paddle = new Paddle(width/2, height - 30, 100, 15);
+  powerUps = new ArrayList<PowerUp>();
   
-  // Apply difficulty settings
   applyDifficulty();
-  
-  // Create bricks
   initializeBricks();
 }
 
 void applyDifficulty() {
   if (difficulty == 1) {
-    // Easy
     ball.maxSpeed = 6;
     paddle.w = 120;
     paddle.speed = 8;
   } else if (difficulty == 2) {
-    // Medium
     ball.maxSpeed = 7;
     paddle.w = 100;
     paddle.speed = 9;
   } else {
-    // Hard
     ball.maxSpeed = 9;
     paddle.w = 80;
     paddle.speed = 10;
   }
   
-  // Increase difficulty as levels progress
   float levelMultiplier = 1 + (level - 1) * 0.1;
   ball.maxSpeed *= levelMultiplier;
 }
@@ -68,14 +66,52 @@ void draw() {
 }
 
 void drawGame() {
+  // Update power-up timers
+  if (paddleExpandTimer > 0) {
+    paddleExpandTimer--;
+    if (paddleExpandTimer == 0) {
+      paddle.w = 100; // Reset size
+      applyDifficulty();
+    }
+  }
+  
+  if (slowBallTimer > 0) {
+    slowBallTimer--;
+    if (slowBallTimer == 0) {
+      ball.maxSpeed = 7; // Reset speed
+      applyDifficulty();
+    }
+  }
+  
   // Update and display bricks
   for (int i = bricks.size() - 1; i >= 0; i--) {
     Brick brick = bricks.get(i);
     brick.display();
     
     if (ballLaunched && brick.checkCollision(ball)) {
-      score += 10 * difficulty; // More points for harder difficulty
+      score += 10 * difficulty;
+      
+      // Random power-up drop (15% chance)
+      if (random(1) < 0.15) {
+        int powerType = int(random(4));
+        powerUps.add(new PowerUp(brick.position.x, brick.position.y, powerType));
+      }
+      
       bricks.remove(i);
+    }
+  }
+  
+  // Update and display power-ups
+  for (int i = powerUps.size() - 1; i >= 0; i--) {
+    PowerUp p = powerUps.get(i);
+    p.update();
+    p.display();
+    
+    if (p.checkCollision(paddle)) {
+      activatePowerUp(p.type);
+      powerUps.remove(i);
+    } else if (p.isOffScreen()) {
+      powerUps.remove(i);
     }
   }
   
@@ -92,6 +128,12 @@ void drawGame() {
       lives--;
       ballLaunched = false;
       ball.reset(paddle.position.x, paddle.position.y - paddle.h/2 - ball.radius - 2);
+      
+      // Reset power-ups on death
+      paddleExpandTimer = 0;
+      slowBallTimer = 0;
+      paddle.w = 100;
+      applyDifficulty();
       
       if (lives <= 0) {
         gameState = 2;
@@ -126,6 +168,27 @@ void drawGame() {
   }
 }
 
+void activatePowerUp(int type) {
+  score += 25; // Bonus for collecting power-up
+  
+  switch(type) {
+    case 0: // Expand paddle
+      paddle.w = 150;
+      paddleExpandTimer = 600; // 10 seconds
+      break;
+    case 1: // Extra life
+      lives = min(lives + 1, 5);
+      break;
+    case 2: // Slow ball
+      ball.maxSpeed = 4;
+      slowBallTimer = 600;
+      break;
+    case 3: // Multi-ball (simplified - just speed boost)
+      ball.velocity.mult(1.2);
+      break;
+  }
+}
+
 void drawStartScreen() {
   fill(100, 200, 255);
   textAlign(CENTER);
@@ -136,7 +199,6 @@ void drawStartScreen() {
   fill(255);
   text("Select Difficulty:", width/2, height/2 - 20);
   
-  // Difficulty buttons
   drawDifficultyButton(1, "EASY", width/2 - 150, height/2 + 30);
   drawDifficultyButton(2, "MEDIUM", width/2, height/2 + 30);
   drawDifficultyButton(3, "HARD", width/2 + 150, height/2 + 30);
@@ -146,6 +208,11 @@ void drawStartScreen() {
   text("Press 1, 2, or 3 to select", width/2, height/2 + 90);
   text("Press SPACE to start", width/2, height/2 + 115);
   text("Controls: ← → or A D", width/2, height/2 + 140);
+  
+  // Power-up legend
+  textSize(14);
+  fill(150);
+  text("Power-ups: [W] Wide Paddle  [+] Extra Life  [S] Slow Ball  [M] Speed Boost", width/2, height - 80);
   
   if (highScore > 0) {
     textSize(16);
@@ -199,8 +266,8 @@ void drawGameOver() {
 void initializeBricks() {
   bricks = new ArrayList<Brick>();
   
-  int rows = 5 + (level - 1); // More rows each level
-  rows = min(rows, 8); // Max 8 rows
+  int rows = 5 + (level - 1);
+  rows = min(rows, 8);
   int cols = 10;
   float brickWidth = 70;
   float brickHeight = 25;
@@ -239,8 +306,18 @@ void displayHUD() {
   String diffText = difficulty == 1 ? "Easy" : (difficulty == 2 ? "Medium" : "Hard");
   text("Difficulty: " + diffText, width - 10, 50);
   
-  // Draw lives as hearts
+  // Active power-ups indicator
   textAlign(LEFT);
+  textSize(14);
+  fill(100, 255, 100);
+  if (paddleExpandTimer > 0) {
+    text("Wide Paddle: " + (paddleExpandTimer/60) + "s", 10, height - 30);
+  }
+  if (slowBallTimer > 0) {
+    text("Slow Ball: " + (slowBallTimer/60) + "s", 10, height - 10);
+  }
+  
+  // Draw lives as hearts
   for (int i = 0; i < lives; i++) {
     fill(255, 100, 100);
     ellipse(80 + i * 25, 60, 15, 15);
@@ -253,11 +330,13 @@ void keyPressed() {
     lives = 3;
     level = 1;
     ballLaunched = false;
+    paddleExpandTimer = 0;
+    slowBallTimer = 0;
     gameState = 0;
+    powerUps.clear();
     setup();
   }
   
-  // Difficulty selection
   if (gameState == 0) {
     if (key == '1') difficulty = 1;
     if (key == '2') difficulty = 2;
@@ -271,9 +350,10 @@ void keyPressed() {
     } else if (gameState == 1 && !ballLaunched) {
       if (bricks.size() == 0) {
         level++;
-        score += lives * 50; // Bonus for remaining lives
+        score += lives * 50;
         lives = min(lives + 1, 5);
         applyDifficulty();
+        powerUps.clear();
         initializeBricks();
       }
       ball.launch();
