@@ -1,75 +1,80 @@
-class Ball {
-  PVector position;
-  PVector velocity;
-  float radius;
-  float maxSpeed = 7;
-  color ballColor;
+PImage img;
+PImage original;
+String imagePath = "";
+boolean imageLoaded = false;
+String currentFilter = "None";
 
-  Ball(float x, float y, float r) {
-    position = new PVector(x, y);
-    velocity = new PVector(0, 0);
-    radius = r;
-    ballColor = color(255, 100, 100);
+void setup() {
+  size(1000, 600, P2D);
+  surface. setTitle("Creative Filter Lab");
+  selectInput("Select an image:", "fileSelected");
+}
+
+void fileSelected(File selection) {
+  if (selection != null) {
+    imagePath = selection.getAbsolutePath();
+    img = loadImage(imagePath);
+    if (img != null) {
+      original = img.copy();
+      imageLoaded = true;
+      surface.setSize(img.width, img.height);
+    }
   }
+}
+
+void draw() {
+  background(30);
+  if (imageLoaded) {
+    image(img, 0, 0);
+  } else {
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(24);
+    text("Press 'O' to open an image", width/2, height/2);
+  }
+}
+
+void applyGrayscale() {
+  img.loadPixels();
+  for (int i = 0; i < img. pixels.length; i++) {
+    color c = img.pixels[i];
+    float gray = red(c) * 0.299 + green(c) * 0.587 + blue(c) * 0.114;
+    img.pixels[i] = color(gray);
+  }
+  img.updatePixels();
+  currentFilter = "Grayscale";
+}
+
+void applyInvert() {
+  img.loadPixels();
+  for (int i = 0; i < img. pixels.length; i++) {
+    color c = img.pixels[i];
+    img.pixels[i] = color(255 - red(c), 255 - green(c), 255 - blue(c));
+  }
+  img.updatePixels();
+  currentFilter = "Invert";
+}
+
+void resetImage() {
+  img = original.copy();
+  currentFilter = "None";
+}
+
+void keyPressed() {
+  if (key == 'o' || key == 'O') {
+    selectInput("Select an image:", "fileSelected");
+  }
+  if (! imageLoaded) return;
   
-  void launch() {
-    float angle = random(-PI/3, -2*PI/3);
-    velocity = PVector.fromAngle(angle);
-    velocity.mult(5);
+  if (key == '1') {
+    resetImage();
+    applyGrayscale();
   }
-
-  void update() {
-    position.add(velocity);
-    
-    // Ensure minimum speed
-    if (velocity.mag() < 3) {
-      velocity.setMag(3);
-    }
-    
-    // Limit maximum speed
-    velocity.limit(maxSpeed);
+  if (key == '2') {
+    resetImage();
+    applyInvert();
   }
-
-  boolean checkBoundaryCollision() {
-    boolean fellOff = false;
-    
-    if (position.x > width - radius) {
-      position.x = width - radius;
-      velocity.x *= -1;
-    } else if (position.x < radius) {
-      position.x = radius;
-      velocity.x *= -1;
-    }
-    
-    if (position.y < radius) {
-      position.y = radius;
-      velocity.y *= -1;
-    }
-    
-    if (position.y > height + radius) {
-      fellOff = true;
-    }
-    
-    return fellOff;
-  }
-  
-  void reset(float x, float y) {
-    position.set(x, y);
-    velocity.set(0, 0);
-  }
-
-  void display() {
-    noStroke();
-    
-    // Trail effect
-    fill(ballColor, 50);
-    ellipse(position.x - velocity.x, position.y - velocity.y, radius * 2, radius * 2);
-    
-    fill(ballColor);
-    ellipse(position.x, position.y, radius * 2, radius * 2);
-    
-    // Glow effect
-    fill(255, 255, 255, 150);
-    ellipse(position.x - 2, position.y - 2, radius, radius);
+  if (key == 'r' || key == 'R') {
+    resetImage();
   }
 }
