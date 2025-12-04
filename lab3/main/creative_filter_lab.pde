@@ -3,10 +3,11 @@ PImage original;
 String imagePath = "";
 boolean imageLoaded = false;
 String currentFilter = "None";
+float filterIntensity = 50;
 
 void setup() {
-  size(1000, 600, P2D);
-  surface. setTitle("Creative Filter Lab");
+  size(1200, 800, P2D);
+  surface.setTitle("Creative Filter Lab");
   selectInput("Select an image:", "fileSelected");
 }
 
@@ -17,7 +18,7 @@ void fileSelected(File selection) {
     if (img != null) {
       original = img.copy();
       imageLoaded = true;
-      surface.setSize(img.width, img.height);
+      surface.setSize(img. width, img.height);
     }
   }
 }
@@ -36,7 +37,7 @@ void draw() {
 
 void applyGrayscale() {
   img.loadPixels();
-  for (int i = 0; i < img. pixels.length; i++) {
+  for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float gray = red(c) * 0.299 + green(c) * 0.587 + blue(c) * 0.114;
     img.pixels[i] = color(gray);
@@ -47,12 +48,39 @@ void applyGrayscale() {
 
 void applyInvert() {
   img.loadPixels();
-  for (int i = 0; i < img. pixels.length; i++) {
+  for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     img.pixels[i] = color(255 - red(c), 255 - green(c), 255 - blue(c));
   }
-  img.updatePixels();
+  img. updatePixels();
   currentFilter = "Invert";
+}
+
+void applyBrightness(float amount) {
+  img.loadPixels();
+  for (int i = 0; i < img. pixels.length; i++) {
+    color c = img.pixels[i];
+    float r = constrain(red(c) + amount, 0, 255);
+    float g = constrain(green(c) + amount, 0, 255);
+    float b = constrain(blue(c) + amount, 0, 255);
+    img.pixels[i] = color(r, g, b);
+  }
+  img.updatePixels();
+  currentFilter = "Brightness";
+}
+
+void applyContrast(float amount) {
+  float factor = (259 * (amount + 255)) / (255 * (259 - amount));
+  img.loadPixels();
+  for (int i = 0; i < img.pixels.length; i++) {
+    color c = img.pixels[i];
+    float r = constrain(factor * (red(c) - 128) + 128, 0, 255);
+    float g = constrain(factor * (green(c) - 128) + 128, 0, 255);
+    float b = constrain(factor * (blue(c) - 128) + 128, 0, 255);
+    img. pixels[i] = color(r, g, b);
+  }
+  img.updatePixels();
+  currentFilter = "Contrast";
 }
 
 void resetImage() {
@@ -64,7 +92,7 @@ void keyPressed() {
   if (key == 'o' || key == 'O') {
     selectInput("Select an image:", "fileSelected");
   }
-  if (! imageLoaded) return;
+  if (!imageLoaded) return;
   
   if (key == '1') {
     resetImage();
@@ -74,7 +102,21 @@ void keyPressed() {
     resetImage();
     applyInvert();
   }
+  if (key == '3') {
+    resetImage();
+    applyBrightness(filterIntensity);
+  }
+  if (key == '4') {
+    resetImage();
+    applyContrast(filterIntensity);
+  }
   if (key == 'r' || key == 'R') {
     resetImage();
+  }
+  if (key == '+' || key == '=') {
+    filterIntensity = constrain(filterIntensity + 10, -255, 255);
+  }
+  if (key == '-') {
+    filterIntensity = constrain(filterIntensity - 10, -255, 255);
   }
 }
