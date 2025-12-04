@@ -7,6 +7,7 @@ float filterIntensity = 50;
 String currentTool = "None";
 int brushSize = 20;
 color brushColor = color(255, 0, 0);
+boolean showHUD = true;
 
 void setup() {
   size(1200, 800, P2D);
@@ -21,7 +22,7 @@ void fileSelected(File selection) {
     if (img != null) {
       original = img.copy();
       imageLoaded = true;
-      surface. setSize(img.width, img.height);
+      surface.setSize(img.width, img.height);
     }
   }
 }
@@ -30,10 +31,13 @@ void draw() {
   background(30);
   if (imageLoaded) {
     image(img, 0, 0);
-    if (currentTool. equals("Brush") || currentTool.equals("Eraser")) {
+    if (currentTool.equals("Brush") || currentTool.equals("Eraser")) {
       noFill();
       stroke(255);
       ellipse(mouseX, mouseY, brushSize, brushSize);
+    }
+    if (showHUD) {
+      drawHUD();
     }
   } else {
     fill(255);
@@ -43,13 +47,45 @@ void draw() {
   }
 }
 
+void drawHUD() {
+  fill(0, 150);
+  noStroke();
+  rect(10, 10, 250, 200, 10);
+  
+  fill(255);
+  textAlign(LEFT, TOP);
+  textSize(14);
+  int y = 20;
+  int lineHeight = 18;
+  
+  text("CREATIVE FILTER LAB", 20, y);
+  y += lineHeight + 5;
+  text("Filter: " + currentFilter, 20, y);
+  y += lineHeight;
+  text("Tool: " + currentTool, 20, y);
+  y += lineHeight;
+  text("Intensity: " + (int)filterIntensity, 20, y);
+  y += lineHeight;
+  text("Brush Size: " + brushSize, 20, y);
+  y += lineHeight + 10;
+  
+  textSize(11);
+  text("O-Open S-Save R-Reset H-HUD", 20, y);
+  y += lineHeight;
+  text("1-Gray 2-Invert 3-Bright 4-Contrast", 20, y);
+  y += lineHeight;
+  text("B-Brush E-Eraser [/]-Size", 20, y);
+  y += lineHeight;
+  text("+/- Intensity", 20, y);
+}
+
 void mouseDragged() {
-  if (! imageLoaded) return;
+  if (!imageLoaded) return;
   
   if (currentTool.equals("Brush")) {
     drawBrush(mouseX, mouseY, brushColor);
   }
-  if (currentTool. equals("Eraser")) {
+  if (currentTool.equals("Eraser")) {
     eraseArea(mouseX, mouseY);
   }
 }
@@ -74,7 +110,7 @@ void drawBrush(int x, int y, color c) {
       if (i*i + j*j <= radius*radius) {
         int px = x + i;
         int py = y + j;
-        if (px >= 0 && px < img.width && py >= 0 && py < img. height) {
+        if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
           int idx = py * img.width + px;
           img.pixels[idx] = c;
         }
@@ -105,20 +141,20 @@ void eraseArea(int x, int y) {
 
 void applyGrayscale() {
   img.loadPixels();
-  for (int i = 0; i < img.pixels.length; i++) {
+  for (int i = 0; i < img. pixels.length; i++) {
     color c = img.pixels[i];
     float gray = red(c) * 0.299 + green(c) * 0.587 + blue(c) * 0.114;
-    img. pixels[i] = color(gray);
+    img.pixels[i] = color(gray);
   }
-  img. updatePixels();
+  img.updatePixels();
   currentFilter = "Grayscale";
 }
 
 void applyInvert() {
-  img.loadPixels();
+  img. loadPixels();
   for (int i = 0; i < img.pixels.length; i++) {
-    color c = img.pixels[i];
-    img.pixels[i] = color(255 - red(c), 255 - green(c), 255 - blue(c));
+    color c = img. pixels[i];
+    img. pixels[i] = color(255 - red(c), 255 - green(c), 255 - blue(c));
   }
   img.updatePixels();
   currentFilter = "Invert";
@@ -126,14 +162,14 @@ void applyInvert() {
 
 void applyBrightness(float amount) {
   img.loadPixels();
-  for (int i = 0; i < img.pixels.length; i++) {
+  for (int i = 0; i < img. pixels.length; i++) {
     color c = img.pixels[i];
     float r = constrain(red(c) + amount, 0, 255);
     float g = constrain(green(c) + amount, 0, 255);
     float b = constrain(blue(c) + amount, 0, 255);
     img.pixels[i] = color(r, g, b);
   }
-  img. updatePixels();
+  img.updatePixels();
   currentFilter = "Brightness";
 }
 
@@ -145,15 +181,20 @@ void applyContrast(float amount) {
     float r = constrain(factor * (red(c) - 128) + 128, 0, 255);
     float g = constrain(factor * (green(c) - 128) + 128, 0, 255);
     float b = constrain(factor * (blue(c) - 128) + 128, 0, 255);
-    img. pixels[i] = color(r, g, b);
+    img.pixels[i] = color(r, g, b);
   }
   img.updatePixels();
   currentFilter = "Contrast";
 }
 
 void resetImage() {
-  img = original.copy();
+  img = original. copy();
   currentFilter = "None";
+}
+
+void saveImage() {
+  String filename = "output_" + year() + month() + day() + "_" + hour() + minute() + second() + ".png";
+  img.save(filename);
 }
 
 void keyPressed() {
@@ -162,6 +203,12 @@ void keyPressed() {
   }
   if (!imageLoaded) return;
   
+  if (key == 's' || key == 'S') {
+    saveImage();
+  }
+  if (key == 'h' || key == 'H') {
+    showHUD = ! showHUD;
+  }
   if (key == '1') {
     resetImage();
     applyGrayscale();
