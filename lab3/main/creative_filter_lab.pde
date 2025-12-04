@@ -4,6 +4,9 @@ String imagePath = "";
 boolean imageLoaded = false;
 String currentFilter = "None";
 float filterIntensity = 50;
+String currentTool = "None";
+int brushSize = 20;
+color brushColor = color(255, 0, 0);
 
 void setup() {
   size(1200, 800, P2D);
@@ -18,7 +21,7 @@ void fileSelected(File selection) {
     if (img != null) {
       original = img.copy();
       imageLoaded = true;
-      surface.setSize(img. width, img.height);
+      surface. setSize(img.width, img.height);
     }
   }
 }
@@ -27,6 +30,11 @@ void draw() {
   background(30);
   if (imageLoaded) {
     image(img, 0, 0);
+    if (currentTool. equals("Brush") || currentTool.equals("Eraser")) {
+      noFill();
+      stroke(255);
+      ellipse(mouseX, mouseY, brushSize, brushSize);
+    }
   } else {
     fill(255);
     textAlign(CENTER, CENTER);
@@ -35,14 +43,74 @@ void draw() {
   }
 }
 
+void mouseDragged() {
+  if (! imageLoaded) return;
+  
+  if (currentTool.equals("Brush")) {
+    drawBrush(mouseX, mouseY, brushColor);
+  }
+  if (currentTool. equals("Eraser")) {
+    eraseArea(mouseX, mouseY);
+  }
+}
+
+void mousePressed() {
+  if (!imageLoaded) return;
+  
+  if (currentTool.equals("Brush")) {
+    drawBrush(mouseX, mouseY, brushColor);
+  }
+  if (currentTool. equals("Eraser")) {
+    eraseArea(mouseX, mouseY);
+  }
+}
+
+void drawBrush(int x, int y, color c) {
+  img.loadPixels();
+  original.loadPixels();
+  int radius = brushSize / 2;
+  for (int i = -radius; i <= radius; i++) {
+    for (int j = -radius; j <= radius; j++) {
+      if (i*i + j*j <= radius*radius) {
+        int px = x + i;
+        int py = y + j;
+        if (px >= 0 && px < img.width && py >= 0 && py < img. height) {
+          int idx = py * img.width + px;
+          img.pixels[idx] = c;
+        }
+      }
+    }
+  }
+  img.updatePixels();
+}
+
+void eraseArea(int x, int y) {
+  img.loadPixels();
+  original.loadPixels();
+  int radius = brushSize / 2;
+  for (int i = -radius; i <= radius; i++) {
+    for (int j = -radius; j <= radius; j++) {
+      if (i*i + j*j <= radius*radius) {
+        int px = x + i;
+        int py = y + j;
+        if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
+          int idx = py * img.width + px;
+          img.pixels[idx] = original.pixels[idx];
+        }
+      }
+    }
+  }
+  img.updatePixels();
+}
+
 void applyGrayscale() {
   img.loadPixels();
   for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float gray = red(c) * 0.299 + green(c) * 0.587 + blue(c) * 0.114;
-    img.pixels[i] = color(gray);
+    img. pixels[i] = color(gray);
   }
-  img.updatePixels();
+  img. updatePixels();
   currentFilter = "Grayscale";
 }
 
@@ -52,20 +120,20 @@ void applyInvert() {
     color c = img.pixels[i];
     img.pixels[i] = color(255 - red(c), 255 - green(c), 255 - blue(c));
   }
-  img. updatePixels();
+  img.updatePixels();
   currentFilter = "Invert";
 }
 
 void applyBrightness(float amount) {
   img.loadPixels();
-  for (int i = 0; i < img. pixels.length; i++) {
+  for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float r = constrain(red(c) + amount, 0, 255);
     float g = constrain(green(c) + amount, 0, 255);
     float b = constrain(blue(c) + amount, 0, 255);
     img.pixels[i] = color(r, g, b);
   }
-  img.updatePixels();
+  img. updatePixels();
   currentFilter = "Brightness";
 }
 
@@ -118,5 +186,17 @@ void keyPressed() {
   }
   if (key == '-') {
     filterIntensity = constrain(filterIntensity - 10, -255, 255);
+  }
+  if (key == 'b' || key == 'B') {
+    currentTool = "Brush";
+  }
+  if (key == 'e' || key == 'E') {
+    currentTool = "Eraser";
+  }
+  if (key == '[') {
+    brushSize = max(5, brushSize - 5);
+  }
+  if (key == ']') {
+    brushSize = min(100, brushSize + 5);
   }
 }
