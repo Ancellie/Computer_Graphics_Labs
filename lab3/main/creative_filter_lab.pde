@@ -8,6 +8,7 @@ String currentTool = "None";
 int brushSize = 20;
 color brushColor = color(255, 0, 0);
 boolean showHUD = true;
+int blurRadius = 1;
 
 void setup() {
   size(1200, 800, P2D);
@@ -50,7 +51,7 @@ void draw() {
 void drawHUD() {
   fill(0, 150);
   noStroke();
-  rect(10, 10, 250, 200, 10);
+  rect(10, 10, 280, 230, 10);
   
   fill(255);
   textAlign(LEFT, TOP);
@@ -67,6 +68,8 @@ void drawHUD() {
   text("Intensity: " + (int)filterIntensity, 20, y);
   y += lineHeight;
   text("Brush Size: " + brushSize, 20, y);
+  y += lineHeight;
+  text("Blur Radius: " + blurRadius, 20, y);
   y += lineHeight + 10;
   
   textSize(11);
@@ -74,9 +77,9 @@ void drawHUD() {
   y += lineHeight;
   text("1-Gray 2-Invert 3-Bright 4-Contrast", 20, y);
   y += lineHeight;
-  text("B-Brush E-Eraser [/]-Size", 20, y);
+  text("5-Blur 6-Sharpen 7-Edge", 20, y);
   y += lineHeight;
-  text("+/- Intensity", 20, y);
+  text("B-Brush E-Eraser [/]-Size +/--Intensity", 20, y);
 }
 
 void mouseDragged() {
@@ -103,7 +106,6 @@ void mousePressed() {
 
 void drawBrush(int x, int y, color c) {
   img.loadPixels();
-  original.loadPixels();
   int radius = brushSize / 2;
   for (int i = -radius; i <= radius; i++) {
     for (int j = -radius; j <= radius; j++) {
@@ -141,7 +143,7 @@ void eraseArea(int x, int y) {
 
 void applyGrayscale() {
   img.loadPixels();
-  for (int i = 0; i < img. pixels.length; i++) {
+  for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float gray = red(c) * 0.299 + green(c) * 0.587 + blue(c) * 0.114;
     img.pixels[i] = color(gray);
@@ -151,10 +153,10 @@ void applyGrayscale() {
 }
 
 void applyInvert() {
-  img. loadPixels();
-  for (int i = 0; i < img.pixels.length; i++) {
-    color c = img. pixels[i];
-    img. pixels[i] = color(255 - red(c), 255 - green(c), 255 - blue(c));
+  img.loadPixels();
+  for (int i = 0; i < img.pixels. length; i++) {
+    color c = img.pixels[i];
+    img.pixels[i] = color(255 - red(c), 255 - green(c), 255 - blue(c));
   }
   img.updatePixels();
   currentFilter = "Invert";
@@ -162,7 +164,7 @@ void applyInvert() {
 
 void applyBrightness(float amount) {
   img.loadPixels();
-  for (int i = 0; i < img. pixels.length; i++) {
+  for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float r = constrain(red(c) + amount, 0, 255);
     float g = constrain(green(c) + amount, 0, 255);
@@ -176,7 +178,7 @@ void applyBrightness(float amount) {
 void applyContrast(float amount) {
   float factor = (259 * (amount + 255)) / (255 * (259 - amount));
   img.loadPixels();
-  for (int i = 0; i < img.pixels.length; i++) {
+  for (int i = 0; i < img. pixels.length; i++) {
     color c = img.pixels[i];
     float r = constrain(factor * (red(c) - 128) + 128, 0, 255);
     float g = constrain(factor * (green(c) - 128) + 128, 0, 255);
@@ -187,8 +189,75 @@ void applyContrast(float amount) {
   currentFilter = "Contrast";
 }
 
+void applyConvolution(float[][] kernel) {
+  PImage result = createImage(img.width, img. height, RGB);
+  img.loadPixels();
+  result.loadPixels();
+  
+  int kSize = kernel.length;
+  int offset = kSize / 2;
+  
+  for (int y = 0; y < img.height; y++) {
+    for (int x = 0; x < img.width; x++) {
+      float rSum = 0, gSum = 0, bSum = 0;
+      
+      for (int ky = 0; ky < kSize; ky++) {
+        for (int kx = 0; kx < kSize; kx++) {
+          int px = constrain(x + kx - offset, 0, img.width - 1);
+          int py = constrain(y + ky - offset, 0, img.height - 1);
+          int idx = py * img.width + px;
+          color c = img.pixels[idx];
+          
+          rSum += red(c) * kernel[ky][kx];
+          gSum += green(c) * kernel[ky][kx];
+          bSum += blue(c) * kernel[ky][kx];
+        }
+      }
+      
+      int idx = y * img.width + x;
+      result.pixels[idx] = color(constrain(rSum, 0, 255), constrain(gSum, 0, 255), constrain(bSum, 0, 255));
+    }
+  }
+  
+  result.updatePixels();
+  img = result;
+}
+
+void applyBlur() {
+  int size = blurRadius * 2 + 1;
+  float[][] kernel = new float[size][size];
+  float val = 1.0 / (size * size);
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < size; j++) {
+      kernel[i][j] = val;
+    }
+  }
+  applyConvolution(kernel);
+  currentFilter = "Blur";
+}
+
+void applySharpen() {
+  float[][] kernel = {
+    {0, -1, 0},
+    {-1, 5, -1},
+    {0, -1, 0}
+  };
+  applyConvolution(kernel);
+  currentFilter = "Sharpen";
+}
+
+void applyEdgeDetection() {
+  float[][] kernel = {
+    {-1, -1, -1},
+    {-1, 8, -1},
+    {-1, -1, -1}
+  };
+  applyConvolution(kernel);
+  currentFilter = "Edge Detection";
+}
+
 void resetImage() {
-  img = original. copy();
+  img = original.copy();
   currentFilter = "None";
 }
 
@@ -207,7 +276,7 @@ void keyPressed() {
     saveImage();
   }
   if (key == 'h' || key == 'H') {
-    showHUD = ! showHUD;
+    showHUD = !showHUD;
   }
   if (key == '1') {
     resetImage();
@@ -225,14 +294,28 @@ void keyPressed() {
     resetImage();
     applyContrast(filterIntensity);
   }
+  if (key == '5') {
+    resetImage();
+    applyBlur();
+  }
+  if (key == '6') {
+    resetImage();
+    applySharpen();
+  }
+  if (key == '7') {
+    resetImage();
+    applyEdgeDetection();
+  }
   if (key == 'r' || key == 'R') {
     resetImage();
   }
   if (key == '+' || key == '=') {
     filterIntensity = constrain(filterIntensity + 10, -255, 255);
+    blurRadius = min(10, blurRadius + 1);
   }
   if (key == '-') {
     filterIntensity = constrain(filterIntensity - 10, -255, 255);
+    blurRadius = max(1, blurRadius - 1);
   }
   if (key == 'b' || key == 'B') {
     currentTool = "Brush";
