@@ -10,9 +10,15 @@ color brushColor = color(255, 0, 0);
 boolean showHUD = true;
 int blurRadius = 1;
 
+ArrayList<PImage> undoStack;
+ArrayList<PImage> redoStack;
+int maxHistory = 20;
+
 void setup() {
   size(1200, 800, P2D);
-  surface.setTitle("Creative Filter Lab");
+  surface. setTitle("Creative Filter Lab");
+  undoStack = new ArrayList<PImage>();
+  redoStack = new ArrayList<PImage>();
   selectInput("Select an image:", "fileSelected");
 }
 
@@ -24,7 +30,33 @@ void fileSelected(File selection) {
       original = img.copy();
       imageLoaded = true;
       surface.setSize(img.width, img.height);
+      undoStack.clear();
+      redoStack.clear();
+      saveState();
     }
+  }
+}
+
+void saveState() {
+  if (undoStack.size() >= maxHistory) {
+    undoStack.remove(0);
+  }
+  undoStack.add(img.copy());
+  redoStack.clear();
+}
+
+void undo() {
+  if (undoStack.size() > 1) {
+    redoStack.add(undoStack.remove(undoStack.size() - 1));
+    img = undoStack.get(undoStack.size() - 1). copy();
+  }
+}
+
+void redo() {
+  if (redoStack.size() > 0) {
+    PImage state = redoStack.remove(redoStack.size() - 1);
+    undoStack.add(state);
+    img = state.copy();
   }
 }
 
@@ -51,7 +83,7 @@ void draw() {
 void drawHUD() {
   fill(0, 150);
   noStroke();
-  rect(10, 10, 280, 230, 10);
+  rect(10, 10, 280, 260, 10);
   
   fill(255);
   textAlign(LEFT, TOP);
@@ -70,10 +102,14 @@ void drawHUD() {
   text("Brush Size: " + brushSize, 20, y);
   y += lineHeight;
   text("Blur Radius: " + blurRadius, 20, y);
+  y += lineHeight;
+  text("Undo: " + (undoStack.size()-1) + " | Redo: " + redoStack.size(), 20, y);
   y += lineHeight + 10;
   
   textSize(11);
   text("O-Open S-Save R-Reset H-HUD", 20, y);
+  y += lineHeight;
+  text("Z-Undo Y-Redo", 20, y);
   y += lineHeight;
   text("1-Gray 2-Invert 3-Bright 4-Contrast", 20, y);
   y += lineHeight;
@@ -99,8 +135,15 @@ void mousePressed() {
   if (currentTool.equals("Brush")) {
     drawBrush(mouseX, mouseY, brushColor);
   }
-  if (currentTool. equals("Eraser")) {
+  if (currentTool.equals("Eraser")) {
     eraseArea(mouseX, mouseY);
+  }
+}
+
+void mouseReleased() {
+  if (!imageLoaded) return;
+  if (currentTool.equals("Brush") || currentTool.equals("Eraser")) {
+    saveState();
   }
 }
 
@@ -112,7 +155,7 @@ void drawBrush(int x, int y, color c) {
       if (i*i + j*j <= radius*radius) {
         int px = x + i;
         int py = y + j;
-        if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
+        if (px >= 0 && px < img.width && py >= 0 && py < img. height) {
           int idx = py * img.width + px;
           img.pixels[idx] = c;
         }
@@ -131,7 +174,7 @@ void eraseArea(int x, int y) {
       if (i*i + j*j <= radius*radius) {
         int px = x + i;
         int py = y + j;
-        if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
+        if (px >= 0 && px < img.width && py >= 0 && py < img. height) {
           int idx = py * img.width + px;
           img.pixels[idx] = original.pixels[idx];
         }
@@ -146,25 +189,27 @@ void applyGrayscale() {
   for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float gray = red(c) * 0.299 + green(c) * 0.587 + blue(c) * 0.114;
-    img.pixels[i] = color(gray);
+    img. pixels[i] = color(gray);
   }
-  img.updatePixels();
+  img. updatePixels();
   currentFilter = "Grayscale";
+  saveState();
 }
 
 void applyInvert() {
   img.loadPixels();
-  for (int i = 0; i < img.pixels. length; i++) {
+  for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     img.pixels[i] = color(255 - red(c), 255 - green(c), 255 - blue(c));
   }
   img.updatePixels();
   currentFilter = "Invert";
+  saveState();
 }
 
 void applyBrightness(float amount) {
   img.loadPixels();
-  for (int i = 0; i < img.pixels.length; i++) {
+  for (int i = 0; i < img.pixels. length; i++) {
     color c = img.pixels[i];
     float r = constrain(red(c) + amount, 0, 255);
     float g = constrain(green(c) + amount, 0, 255);
@@ -173,26 +218,28 @@ void applyBrightness(float amount) {
   }
   img.updatePixels();
   currentFilter = "Brightness";
+  saveState();
 }
 
 void applyContrast(float amount) {
   float factor = (259 * (amount + 255)) / (255 * (259 - amount));
   img.loadPixels();
-  for (int i = 0; i < img. pixels.length; i++) {
+  for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float r = constrain(factor * (red(c) - 128) + 128, 0, 255);
     float g = constrain(factor * (green(c) - 128) + 128, 0, 255);
     float b = constrain(factor * (blue(c) - 128) + 128, 0, 255);
     img.pixels[i] = color(r, g, b);
   }
-  img.updatePixels();
+  img. updatePixels();
   currentFilter = "Contrast";
+  saveState();
 }
 
 void applyConvolution(float[][] kernel) {
   PImage result = createImage(img.width, img. height, RGB);
-  img.loadPixels();
-  result.loadPixels();
+  img. loadPixels();
+  result. loadPixels();
   
   int kSize = kernel.length;
   int offset = kSize / 2;
@@ -203,7 +250,7 @@ void applyConvolution(float[][] kernel) {
       
       for (int ky = 0; ky < kSize; ky++) {
         for (int kx = 0; kx < kSize; kx++) {
-          int px = constrain(x + kx - offset, 0, img.width - 1);
+          int px = constrain(x + kx - offset, 0, img. width - 1);
           int py = constrain(y + ky - offset, 0, img.height - 1);
           int idx = py * img.width + px;
           color c = img.pixels[idx];
@@ -234,6 +281,7 @@ void applyBlur() {
   }
   applyConvolution(kernel);
   currentFilter = "Blur";
+  saveState();
 }
 
 void applySharpen() {
@@ -244,6 +292,7 @@ void applySharpen() {
   };
   applyConvolution(kernel);
   currentFilter = "Sharpen";
+  saveState();
 }
 
 void applyEdgeDetection() {
@@ -254,16 +303,18 @@ void applyEdgeDetection() {
   };
   applyConvolution(kernel);
   currentFilter = "Edge Detection";
+  saveState();
 }
 
 void resetImage() {
   img = original.copy();
   currentFilter = "None";
+  saveState();
 }
 
 void saveImage() {
   String filename = "output_" + year() + month() + day() + "_" + hour() + minute() + second() + ".png";
-  img.save(filename);
+  img. save(filename);
 }
 
 void keyPressed() {
@@ -277,6 +328,12 @@ void keyPressed() {
   }
   if (key == 'h' || key == 'H') {
     showHUD = !showHUD;
+  }
+  if (key == 'z' || key == 'Z') {
+    undo();
+  }
+  if (key == 'y' || key == 'Y') {
+    redo();
   }
   if (key == '1') {
     resetImage();
