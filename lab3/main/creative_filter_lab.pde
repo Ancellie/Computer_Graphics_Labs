@@ -16,6 +16,14 @@ ArrayList<PImage> undoStack;
 ArrayList<PImage> redoStack;
 int maxHistory = 20;
 
+PGraphics layer1;
+PGraphics layer2;
+int currentLayer = 0;
+int blendMode = BLEND;
+String[] blendNames = {"BLEND", "ADD", "MULTIPLY", "SCREEN", "OVERLAY", "DIFFERENCE"};
+int[] blendModes = {BLEND, ADD, MULTIPLY, SCREEN, OVERLAY, DIFFERENCE};
+int blendIndex = 0;
+
 void setup() {
   size(1200, 800, P2D);
   surface.setTitle("Creative Filter Lab");
@@ -26,7 +34,7 @@ void setup() {
 
 void fileSelected(File selection) {
   if (selection != null) {
-    imagePath = selection. getAbsolutePath();
+    imagePath = selection.getAbsolutePath();
     img = loadImage(imagePath);
     if (img != null) {
       original = img.copy();
@@ -34,6 +42,18 @@ void fileSelected(File selection) {
       surface.setSize(img.width, img.height);
       undoStack.clear();
       redoStack.clear();
+      
+      layer1 = createGraphics(img.width, img.height, P2D);
+      layer2 = createGraphics(img. width, img.height, P2D);
+      
+      layer1.beginDraw();
+      layer1.image(img, 0, 0);
+      layer1.endDraw();
+      
+      layer2.beginDraw();
+      layer2.clear();
+      layer2.endDraw();
+      
       saveState();
     }
   }
@@ -41,7 +61,7 @@ void fileSelected(File selection) {
 
 void saveState() {
   if (undoStack.size() >= maxHistory) {
-    undoStack. remove(0);
+    undoStack.remove(0);
   }
   undoStack.add(img.copy());
   redoStack.clear();
@@ -49,8 +69,9 @@ void saveState() {
 
 void undo() {
   if (undoStack.size() > 1) {
-    redoStack. add(undoStack.remove(undoStack.size() - 1));
-    img = undoStack.get(undoStack. size() - 1).copy();
+    redoStack.add(undoStack.remove(undoStack.size() - 1));
+    img = undoStack.get(undoStack.size() - 1). copy();
+    updateLayer1();
   }
 }
 
@@ -58,15 +79,26 @@ void redo() {
   if (redoStack.size() > 0) {
     PImage state = redoStack.remove(redoStack.size() - 1);
     undoStack.add(state);
-    img = state. copy();
+    img = state.copy();
+    updateLayer1();
   }
+}
+
+void updateLayer1() {
+  layer1.beginDraw();
+  layer1. image(img, 0, 0);
+  layer1.endDraw();
 }
 
 void draw() {
   background(30);
   if (imageLoaded) {
-    image(img, 0, 0);
-    if (currentTool.equals("Brush") || currentTool.equals("Eraser")) {
+    image(layer1, 0, 0);
+    blendMode(blendModes[blendIndex]);
+    image(layer2, 0, 0);
+    blendMode(BLEND);
+    
+    if (currentTool. equals("Brush") || currentTool.equals("Eraser")) {
       noFill();
       stroke(255);
       ellipse(mouseX, mouseY, brushSize, brushSize);
@@ -85,7 +117,7 @@ void draw() {
 void drawHUD() {
   fill(0, 150);
   noStroke();
-  rect(10, 10, 300, 300, 10);
+  rect(10, 10, 320, 340, 10);
   
   fill(255);
   textAlign(LEFT, TOP);
@@ -109,7 +141,9 @@ void drawHUD() {
   y += lineHeight;
   text("Pixel Size: " + pixelSize, 20, y);
   y += lineHeight;
-  text("Undo: " + (undoStack.size()-1) + " | Redo: " + redoStack.size(), 20, y);
+  text("Layer: " + (currentLayer + 1) + " | Blend: " + blendNames[blendIndex], 20, y);
+  y += lineHeight;
+  text("Undo: " + (undoStack. size()-1) + " | Redo: " + redoStack.size(), 20, y);
   y += lineHeight + 10;
   
   textSize(11);
@@ -122,32 +156,52 @@ void drawHUD() {
   text("8-Posterize 9-Pixelate 0-Mosaic", 20, y);
   y += lineHeight;
   text("B-Brush E-Eraser [/]-Size +/--Params", 20, y);
+  y += lineHeight;
+  text("L-Switch Layer M-Cycle Blend Mode", 20, y);
 }
 
 void mouseDragged() {
-  if (!imageLoaded) return;
+  if (! imageLoaded) return;
   if (currentTool.equals("Brush")) {
-    drawBrush(mouseX, mouseY, brushColor);
+    if (currentLayer == 0) {
+      drawBrush(mouseX, mouseY, brushColor);
+    } else {
+      drawBrushToLayer2(mouseX, mouseY, brushColor);
+    }
   }
-  if (currentTool.equals("Eraser")) {
-    eraseArea(mouseX, mouseY);
+  if (currentTool. equals("Eraser")) {
+    if (currentLayer == 0) {
+      eraseArea(mouseX, mouseY);
+    } else {
+      eraseLayer2(mouseX, mouseY);
+    }
   }
 }
 
 void mousePressed() {
-  if (! imageLoaded) return;
+  if (!imageLoaded) return;
   if (currentTool.equals("Brush")) {
-    drawBrush(mouseX, mouseY, brushColor);
+    if (currentLayer == 0) {
+      drawBrush(mouseX, mouseY, brushColor);
+    } else {
+      drawBrushToLayer2(mouseX, mouseY, brushColor);
+    }
   }
   if (currentTool.equals("Eraser")) {
-    eraseArea(mouseX, mouseY);
+    if (currentLayer == 0) {
+      eraseArea(mouseX, mouseY);
+    } else {
+      eraseLayer2(mouseX, mouseY);
+    }
   }
 }
 
 void mouseReleased() {
-  if (!imageLoaded) return;
+  if (! imageLoaded) return;
   if (currentTool.equals("Brush") || currentTool.equals("Eraser")) {
-    saveState();
+    if (currentLayer == 0) {
+      saveState();
+    }
   }
 }
 
@@ -159,7 +213,7 @@ void drawBrush(int x, int y, color c) {
       if (i*i + j*j <= radius*radius) {
         int px = x + i;
         int py = y + j;
-        if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
+        if (px >= 0 && px < img.width && py >= 0 && py < img. height) {
           int idx = py * img.width + px;
           img.pixels[idx] = c;
         }
@@ -167,6 +221,15 @@ void drawBrush(int x, int y, color c) {
     }
   }
   img.updatePixels();
+  updateLayer1();
+}
+
+void drawBrushToLayer2(int x, int y, color c) {
+  layer2.beginDraw();
+  layer2. noStroke();
+  layer2. fill(c);
+  layer2.ellipse(x, y, brushSize, brushSize);
+  layer2.endDraw();
 }
 
 void eraseArea(int x, int y) {
@@ -178,14 +241,35 @@ void eraseArea(int x, int y) {
       if (i*i + j*j <= radius*radius) {
         int px = x + i;
         int py = y + j;
-        if (px >= 0 && px < img.width && py >= 0 && py < img. height) {
+        if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
           int idx = py * img.width + px;
-          img.pixels[idx] = original.pixels[idx];
+          img.pixels[idx] = original. pixels[idx];
         }
       }
     }
   }
   img.updatePixels();
+  updateLayer1();
+}
+
+void eraseLayer2(int x, int y) {
+  layer2.beginDraw();
+  layer2.loadPixels();
+  int radius = brushSize / 2;
+  for (int i = -radius; i <= radius; i++) {
+    for (int j = -radius; j <= radius; j++) {
+      if (i*i + j*j <= radius*radius) {
+        int px = x + i;
+        int py = y + j;
+        if (px >= 0 && px < layer2.width && py >= 0 && py < layer2.height) {
+          int idx = py * layer2.width + px;
+          layer2.pixels[idx] = color(0, 0);
+        }
+      }
+    }
+  }
+  layer2.updatePixels();
+  layer2.endDraw();
 }
 
 void applyGrayscale() {
@@ -193,9 +277,10 @@ void applyGrayscale() {
   for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float gray = red(c) * 0.299 + green(c) * 0.587 + blue(c) * 0.114;
-    img. pixels[i] = color(gray);
+    img.pixels[i] = color(gray);
   }
-  img. updatePixels();
+  img.updatePixels();
+  updateLayer1();
   currentFilter = "Grayscale";
   saveState();
 }
@@ -207,20 +292,22 @@ void applyInvert() {
     img.pixels[i] = color(255 - red(c), 255 - green(c), 255 - blue(c));
   }
   img.updatePixels();
+  updateLayer1();
   currentFilter = "Invert";
   saveState();
 }
 
 void applyBrightness(float amount) {
   img.loadPixels();
-  for (int i = 0; i < img.pixels.length; i++) {
+  for (int i = 0; i < img. pixels.length; i++) {
     color c = img.pixels[i];
     float r = constrain(red(c) + amount, 0, 255);
     float g = constrain(green(c) + amount, 0, 255);
     float b = constrain(blue(c) + amount, 0, 255);
     img.pixels[i] = color(r, g, b);
   }
-  img. updatePixels();
+  img.updatePixels();
+  updateLayer1();
   currentFilter = "Brightness";
   saveState();
 }
@@ -228,14 +315,15 @@ void applyBrightness(float amount) {
 void applyContrast(float amount) {
   float factor = (259 * (amount + 255)) / (255 * (259 - amount));
   img.loadPixels();
-  for (int i = 0; i < img. pixels.length; i++) {
+  for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float r = constrain(factor * (red(c) - 128) + 128, 0, 255);
     float g = constrain(factor * (green(c) - 128) + 128, 0, 255);
     float b = constrain(factor * (blue(c) - 128) + 128, 0, 255);
-    img.pixels[i] = color(r, g, b);
+    img. pixels[i] = color(r, g, b);
   }
   img.updatePixels();
+  updateLayer1();
   currentFilter = "Contrast";
   saveState();
 }
@@ -257,7 +345,7 @@ void applyConvolution(float[][] kernel) {
           int px = constrain(x + kx - offset, 0, img.width - 1);
           int py = constrain(y + ky - offset, 0, img.height - 1);
           int idx = py * img.width + px;
-          color c = img. pixels[idx];
+          color c = img.pixels[idx];
           
           rSum += red(c) * kernel[ky][kx];
           gSum += green(c) * kernel[ky][kx];
@@ -272,6 +360,7 @@ void applyConvolution(float[][] kernel) {
   
   result.updatePixels();
   img = result;
+  updateLayer1();
 }
 
 void applyBlur() {
@@ -315,11 +404,12 @@ void applyPosterize() {
   for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float r = round(red(c) / 255.0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
-    float g = round(green(c) / 255.0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
+    float g = round(green(c) / 255. 0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
     float b = round(blue(c) / 255.0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
     img.pixels[i] = color(r, g, b);
   }
   img.updatePixels();
+  updateLayer1();
   currentFilter = "Posterize";
   saveState();
 }
@@ -340,21 +430,22 @@ void applyPixelate() {
     }
   }
   img.updatePixels();
+  updateLayer1();
   currentFilter = "Pixelate";
   saveState();
 }
 
 void applyMosaic() {
-  img. loadPixels();
+  img.loadPixels();
   for (int y = 0; y < img.height; y += pixelSize) {
-    for (int x = 0; x < img.width; x += pixelSize) {
+    for (int x = 0; x < img. width; x += pixelSize) {
       float rSum = 0, gSum = 0, bSum = 0;
       int count = 0;
       
       for (int py = y; py < min(y + pixelSize, img.height); py++) {
         for (int px = x; px < min(x + pixelSize, img.width); px++) {
           int idx = py * img.width + px;
-          color c = img. pixels[idx];
+          color c = img.pixels[idx];
           rSum += red(c);
           gSum += green(c);
           bSum += blue(c);
@@ -373,19 +464,27 @@ void applyMosaic() {
     }
   }
   img.updatePixels();
+  updateLayer1();
   currentFilter = "Mosaic";
   saveState();
 }
 
 void resetImage() {
   img = original.copy();
+  updateLayer1();
   currentFilter = "None";
   saveState();
 }
 
 void saveImage() {
+  PGraphics output = createGraphics(img.width, img.height, P2D);
+  output.beginDraw();
+  output.image(layer1, 0, 0);
+  output.blendMode(blendModes[blendIndex]);
+  output.image(layer2, 0, 0);
+  output.endDraw();
   String filename = "output_" + year() + month() + day() + "_" + hour() + minute() + second() + ".png";
-  img.save(filename);
+  output.save(filename);
 }
 
 void keyPressed() {
@@ -425,4 +524,6 @@ void keyPressed() {
   if (key == 'e' || key == 'E') currentTool = "Eraser";
   if (key == '[') brushSize = max(5, brushSize - 5);
   if (key == ']') brushSize = min(100, brushSize + 5);
+  if (key == 'l' || key == 'L') currentLayer = (currentLayer + 1) % 2;
+  if (key == 'm' || key == 'M') blendIndex = (blendIndex + 1) % blendModes.length;
 }
