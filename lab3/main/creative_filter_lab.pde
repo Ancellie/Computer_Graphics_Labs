@@ -9,6 +9,8 @@ int brushSize = 20;
 color brushColor = color(255, 0, 0);
 boolean showHUD = true;
 int blurRadius = 1;
+int posterizeLevels = 4;
+int pixelSize = 8;
 
 ArrayList<PImage> undoStack;
 ArrayList<PImage> redoStack;
@@ -16,7 +18,7 @@ int maxHistory = 20;
 
 void setup() {
   size(1200, 800, P2D);
-  surface. setTitle("Creative Filter Lab");
+  surface.setTitle("Creative Filter Lab");
   undoStack = new ArrayList<PImage>();
   redoStack = new ArrayList<PImage>();
   selectInput("Select an image:", "fileSelected");
@@ -24,7 +26,7 @@ void setup() {
 
 void fileSelected(File selection) {
   if (selection != null) {
-    imagePath = selection.getAbsolutePath();
+    imagePath = selection. getAbsolutePath();
     img = loadImage(imagePath);
     if (img != null) {
       original = img.copy();
@@ -39,7 +41,7 @@ void fileSelected(File selection) {
 
 void saveState() {
   if (undoStack.size() >= maxHistory) {
-    undoStack.remove(0);
+    undoStack. remove(0);
   }
   undoStack.add(img.copy());
   redoStack.clear();
@@ -47,8 +49,8 @@ void saveState() {
 
 void undo() {
   if (undoStack.size() > 1) {
-    redoStack.add(undoStack.remove(undoStack.size() - 1));
-    img = undoStack.get(undoStack.size() - 1). copy();
+    redoStack. add(undoStack.remove(undoStack.size() - 1));
+    img = undoStack.get(undoStack. size() - 1).copy();
   }
 }
 
@@ -56,7 +58,7 @@ void redo() {
   if (redoStack.size() > 0) {
     PImage state = redoStack.remove(redoStack.size() - 1);
     undoStack.add(state);
-    img = state.copy();
+    img = state. copy();
   }
 }
 
@@ -83,7 +85,7 @@ void draw() {
 void drawHUD() {
   fill(0, 150);
   noStroke();
-  rect(10, 10, 280, 260, 10);
+  rect(10, 10, 300, 300, 10);
   
   fill(255);
   textAlign(LEFT, TOP);
@@ -103,24 +105,27 @@ void drawHUD() {
   y += lineHeight;
   text("Blur Radius: " + blurRadius, 20, y);
   y += lineHeight;
+  text("Posterize Levels: " + posterizeLevels, 20, y);
+  y += lineHeight;
+  text("Pixel Size: " + pixelSize, 20, y);
+  y += lineHeight;
   text("Undo: " + (undoStack.size()-1) + " | Redo: " + redoStack.size(), 20, y);
   y += lineHeight + 10;
   
   textSize(11);
-  text("O-Open S-Save R-Reset H-HUD", 20, y);
-  y += lineHeight;
-  text("Z-Undo Y-Redo", 20, y);
+  text("O-Open S-Save R-Reset H-HUD Z-Undo Y-Redo", 20, y);
   y += lineHeight;
   text("1-Gray 2-Invert 3-Bright 4-Contrast", 20, y);
   y += lineHeight;
   text("5-Blur 6-Sharpen 7-Edge", 20, y);
   y += lineHeight;
-  text("B-Brush E-Eraser [/]-Size +/--Intensity", 20, y);
+  text("8-Posterize 9-Pixelate 0-Mosaic", 20, y);
+  y += lineHeight;
+  text("B-Brush E-Eraser [/]-Size +/--Params", 20, y);
 }
 
 void mouseDragged() {
   if (!imageLoaded) return;
-  
   if (currentTool.equals("Brush")) {
     drawBrush(mouseX, mouseY, brushColor);
   }
@@ -130,8 +135,7 @@ void mouseDragged() {
 }
 
 void mousePressed() {
-  if (!imageLoaded) return;
-  
+  if (! imageLoaded) return;
   if (currentTool.equals("Brush")) {
     drawBrush(mouseX, mouseY, brushColor);
   }
@@ -155,7 +159,7 @@ void drawBrush(int x, int y, color c) {
       if (i*i + j*j <= radius*radius) {
         int px = x + i;
         int py = y + j;
-        if (px >= 0 && px < img.width && py >= 0 && py < img. height) {
+        if (px >= 0 && px < img.width && py >= 0 && py < img.height) {
           int idx = py * img.width + px;
           img.pixels[idx] = c;
         }
@@ -209,14 +213,14 @@ void applyInvert() {
 
 void applyBrightness(float amount) {
   img.loadPixels();
-  for (int i = 0; i < img.pixels. length; i++) {
+  for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float r = constrain(red(c) + amount, 0, 255);
     float g = constrain(green(c) + amount, 0, 255);
     float b = constrain(blue(c) + amount, 0, 255);
     img.pixels[i] = color(r, g, b);
   }
-  img.updatePixels();
+  img. updatePixels();
   currentFilter = "Brightness";
   saveState();
 }
@@ -224,22 +228,22 @@ void applyBrightness(float amount) {
 void applyContrast(float amount) {
   float factor = (259 * (amount + 255)) / (255 * (259 - amount));
   img.loadPixels();
-  for (int i = 0; i < img.pixels.length; i++) {
+  for (int i = 0; i < img. pixels.length; i++) {
     color c = img.pixels[i];
     float r = constrain(factor * (red(c) - 128) + 128, 0, 255);
     float g = constrain(factor * (green(c) - 128) + 128, 0, 255);
     float b = constrain(factor * (blue(c) - 128) + 128, 0, 255);
     img.pixels[i] = color(r, g, b);
   }
-  img. updatePixels();
+  img.updatePixels();
   currentFilter = "Contrast";
   saveState();
 }
 
 void applyConvolution(float[][] kernel) {
-  PImage result = createImage(img.width, img. height, RGB);
-  img. loadPixels();
-  result. loadPixels();
+  PImage result = createImage(img.width, img.height, RGB);
+  img.loadPixels();
+  result.loadPixels();
   
   int kSize = kernel.length;
   int offset = kSize / 2;
@@ -250,10 +254,10 @@ void applyConvolution(float[][] kernel) {
       
       for (int ky = 0; ky < kSize; ky++) {
         for (int kx = 0; kx < kSize; kx++) {
-          int px = constrain(x + kx - offset, 0, img. width - 1);
+          int px = constrain(x + kx - offset, 0, img.width - 1);
           int py = constrain(y + ky - offset, 0, img.height - 1);
           int idx = py * img.width + px;
-          color c = img.pixels[idx];
+          color c = img. pixels[idx];
           
           rSum += red(c) * kernel[ky][kx];
           gSum += green(c) * kernel[ky][kx];
@@ -306,6 +310,73 @@ void applyEdgeDetection() {
   saveState();
 }
 
+void applyPosterize() {
+  img.loadPixels();
+  for (int i = 0; i < img.pixels.length; i++) {
+    color c = img.pixels[i];
+    float r = round(red(c) / 255.0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
+    float g = round(green(c) / 255.0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
+    float b = round(blue(c) / 255.0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
+    img.pixels[i] = color(r, g, b);
+  }
+  img.updatePixels();
+  currentFilter = "Posterize";
+  saveState();
+}
+
+void applyPixelate() {
+  img.loadPixels();
+  for (int y = 0; y < img. height; y += pixelSize) {
+    for (int x = 0; x < img.width; x += pixelSize) {
+      int idx = y * img.width + x;
+      color c = img.pixels[idx];
+      
+      for (int py = y; py < min(y + pixelSize, img.height); py++) {
+        for (int px = x; px < min(x + pixelSize, img.width); px++) {
+          int pIdx = py * img.width + px;
+          img.pixels[pIdx] = c;
+        }
+      }
+    }
+  }
+  img.updatePixels();
+  currentFilter = "Pixelate";
+  saveState();
+}
+
+void applyMosaic() {
+  img. loadPixels();
+  for (int y = 0; y < img.height; y += pixelSize) {
+    for (int x = 0; x < img.width; x += pixelSize) {
+      float rSum = 0, gSum = 0, bSum = 0;
+      int count = 0;
+      
+      for (int py = y; py < min(y + pixelSize, img.height); py++) {
+        for (int px = x; px < min(x + pixelSize, img.width); px++) {
+          int idx = py * img.width + px;
+          color c = img. pixels[idx];
+          rSum += red(c);
+          gSum += green(c);
+          bSum += blue(c);
+          count++;
+        }
+      }
+      
+      color avgColor = color(rSum/count, gSum/count, bSum/count);
+      
+      for (int py = y; py < min(y + pixelSize, img.height); py++) {
+        for (int px = x; px < min(x + pixelSize, img.width); px++) {
+          int idx = py * img.width + px;
+          img.pixels[idx] = avgColor;
+        }
+      }
+    }
+  }
+  img.updatePixels();
+  currentFilter = "Mosaic";
+  saveState();
+}
+
 void resetImage() {
   img = original.copy();
   currentFilter = "None";
@@ -314,76 +385,44 @@ void resetImage() {
 
 void saveImage() {
   String filename = "output_" + year() + month() + day() + "_" + hour() + minute() + second() + ".png";
-  img. save(filename);
+  img.save(filename);
 }
 
 void keyPressed() {
   if (key == 'o' || key == 'O') {
     selectInput("Select an image:", "fileSelected");
   }
-  if (!imageLoaded) return;
+  if (! imageLoaded) return;
   
-  if (key == 's' || key == 'S') {
-    saveImage();
-  }
-  if (key == 'h' || key == 'H') {
-    showHUD = !showHUD;
-  }
-  if (key == 'z' || key == 'Z') {
-    undo();
-  }
-  if (key == 'y' || key == 'Y') {
-    redo();
-  }
-  if (key == '1') {
-    resetImage();
-    applyGrayscale();
-  }
-  if (key == '2') {
-    resetImage();
-    applyInvert();
-  }
-  if (key == '3') {
-    resetImage();
-    applyBrightness(filterIntensity);
-  }
-  if (key == '4') {
-    resetImage();
-    applyContrast(filterIntensity);
-  }
-  if (key == '5') {
-    resetImage();
-    applyBlur();
-  }
-  if (key == '6') {
-    resetImage();
-    applySharpen();
-  }
-  if (key == '7') {
-    resetImage();
-    applyEdgeDetection();
-  }
-  if (key == 'r' || key == 'R') {
-    resetImage();
-  }
+  if (key == 's' || key == 'S') saveImage();
+  if (key == 'h' || key == 'H') showHUD = !showHUD;
+  if (key == 'z' || key == 'Z') undo();
+  if (key == 'y' || key == 'Y') redo();
+  if (key == '1') { resetImage(); applyGrayscale(); }
+  if (key == '2') { resetImage(); applyInvert(); }
+  if (key == '3') { resetImage(); applyBrightness(filterIntensity); }
+  if (key == '4') { resetImage(); applyContrast(filterIntensity); }
+  if (key == '5') { resetImage(); applyBlur(); }
+  if (key == '6') { resetImage(); applySharpen(); }
+  if (key == '7') { resetImage(); applyEdgeDetection(); }
+  if (key == '8') { resetImage(); applyPosterize(); }
+  if (key == '9') { resetImage(); applyPixelate(); }
+  if (key == '0') { resetImage(); applyMosaic(); }
+  if (key == 'r' || key == 'R') resetImage();
   if (key == '+' || key == '=') {
     filterIntensity = constrain(filterIntensity + 10, -255, 255);
     blurRadius = min(10, blurRadius + 1);
+    posterizeLevels = min(16, posterizeLevels + 1);
+    pixelSize = min(32, pixelSize + 2);
   }
   if (key == '-') {
     filterIntensity = constrain(filterIntensity - 10, -255, 255);
     blurRadius = max(1, blurRadius - 1);
+    posterizeLevels = max(2, posterizeLevels - 1);
+    pixelSize = max(2, pixelSize - 2);
   }
-  if (key == 'b' || key == 'B') {
-    currentTool = "Brush";
-  }
-  if (key == 'e' || key == 'E') {
-    currentTool = "Eraser";
-  }
-  if (key == '[') {
-    brushSize = max(5, brushSize - 5);
-  }
-  if (key == ']') {
-    brushSize = min(100, brushSize + 5);
-  }
+  if (key == 'b' || key == 'B') currentTool = "Brush";
+  if (key == 'e' || key == 'E') currentTool = "Eraser";
+  if (key == '[') brushSize = max(5, brushSize - 5);
+  if (key == ']') brushSize = min(100, brushSize + 5);
 }
