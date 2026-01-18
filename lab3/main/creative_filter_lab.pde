@@ -404,7 +404,7 @@ void applyPosterize() {
   for (int i = 0; i < img.pixels.length; i++) {
     color c = img.pixels[i];
     float r = round(red(c) / 255.0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
-    float g = round(green(c) / 255. 0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
+    float g = round(green(c) / 255.0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
     float b = round(blue(c) / 255.0 * (posterizeLevels - 1)) * 255.0 / (posterizeLevels - 1);
     img.pixels[i] = color(r, g, b);
   }
