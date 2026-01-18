@@ -18,6 +18,14 @@ float sphereRadius = 80;
 boolean sphereHit = false;
 boolean showBoundingSphere = true;
 
+// Ray-triangle picking
+boolean triangleHit = false;
+PVector hitNormal = null;
+PVector hitPoint = null;
+
+// Test triangle for ray-triangle intersection
+PVector[] testTriangle = new PVector[3];
+
 void setup() {
   size(1200, 800, P3D);
   perspective(PI/3.0, float(width)/height, 0.1, 1000);
@@ -28,14 +36,19 @@ void setup() {
     println("Note: model.obj not found.");
   }
   
-  // Load Phong shader
   try {
     phongShader = loadShader("phong.frag", "phong.vert");
   } catch (Exception e) {
-    println("Note:  Shader files not found.  Create data folder with phong. vert and phong.frag");
+    println("Note:  Shader files not found.");
   }
   
   sphereCenter = new PVector(-60, -50, 0);
+  
+  // Create a test triangle for picking demonstration
+  testTriangle[0] = new PVector(60, 0, -50);
+  testTriangle[1] = new PVector(100, -40, -30);
+  testTriangle[2] = new PVector(80, -60, -70);
+  
   updateCamera();
 }
 
@@ -44,11 +57,9 @@ void draw() {
   
   camera(cameraX, cameraY, cameraZ, 0, 0, 0, 0, 1, 0);
   
-  // Apply or reset shader
+  // Shader setup
   if (usePhongShader && phongShader != null) {
     shader(phongShader);
-    
-    // Set uniforms
     phongShader.set("lightPosition", 200.0 * cos(angleRotation), -100.0, 200.0 * sin(angleRotation));
     phongShader.set("lightColor", 1.0, 0.75, 0.5);
     phongShader.set("ambientColor", 0.3, 0.3, 0.4);
@@ -58,12 +69,10 @@ void draw() {
     phongShader.set("shininess", 32.0);
   } else {
     resetShader();
-    
     if (showLights) {
       ambientLight(30, 30, 40);
       directionalLight(100, 100, 80, -0.5, 0.5, -1);
-      pointLight(200, 150, 100, 
-                 200 * cos(angleRotation), -100, 200 * sin(angleRotation));
+      pointLight(200, 150, 100, 200 * cos(angleRotation), -100, 200 * sin(angleRotation));
       pointLight(100, 200, 150, -150, -50, 0);
       spotLight(255, 255, 200, 0, -300, 0, 0, 1, 0, PI/4, 2);
     }
@@ -77,16 +86,126 @@ void draw() {
   
   drawHierarchicalObject();
   drawImportedModel();
+  drawTestTriangle();
   
   resetShader();
   drawBoundingSphere();
+  
+  if (hitPoint != null && hitNormal != null) {
+    drawHitVisualization();
+  }
+  
   drawHUD();
 }
 
 void checkMousePicking() {
   PVector rayOrigin = new PVector(cameraX, cameraY, cameraZ);
   PVector rayDir = getRayDirection(mouseX, mouseY);
+  
+  // Ray-sphere
   sphereHit = raySphereIntersection(rayOrigin, rayDir, sphereCenter, sphereRadius);
+  
+  // Ray-triangle (Moller-Trumbore)
+  float[] result = rayTriangleIntersection(rayOrigin, rayDir, 
+                                            testTriangle[0], 
+                                            testTriangle[1], 
+                                            testTriangle[2]);
+  
+  if (result != null) {
+    triangleHit = true;
+    float t = result[0];
+    hitPoint = PVector.add(rayOrigin, PVector.mult(rayDir, t));
+    
+    // Calculate triangle normal
+    PVector edge1 = PVector.sub(testTriangle[1], testTriangle[0]);
+    PVector edge2 = PVector.sub(testTriangle[2], testTriangle[0]);
+    hitNormal = edge1.cross(edge2);
+    hitNormal.normalize();
+  } else {
+    triangleHit = false;
+    hitPoint = null;
+    hitNormal = null;
+  }
+}
+
+// Moller-Trumbore ray-triangle intersection
+float[] rayTriangleIntersection(PVector rayOrigin, PVector rayDir,
+                                 PVector v0, PVector v1, PVector v2) {
+  final float EPSILON = 0.0000001;
+  
+  PVector edge1 = PVector.sub(v1, v0);
+  PVector edge2 = PVector.sub(v2, v0);
+  PVector h = rayDir.cross(edge2);
+  float a = edge1.dot(h);
+  
+  if (a > -EPSILON && a < EPSILON) {
+    return null; // Ray parallel to triangle
+  }
+  
+  float f = 1.0 / a;
+  PVector s = PVector.sub(rayOrigin, v0);
+  float u = f * s.dot(h);
+  
+  if (u < 0.0 || u > 1.0) {
+    return null;
+  }
+  
+  PVector q = s.cross(edge1);
+  float v = f * rayDir. dot(q);
+  
+  if (v < 0.0 || u + v > 1.0) {
+    return null;
+  }
+  
+  float t = f * edge2.dot(q);
+  
+  if (t > EPSILON) {
+    return new float[]{t, u, v}; // Intersection found
+  }
+  
+  return null;
+}
+
+void drawTestTriangle() {
+  pushMatrix();
+  
+  if (triangleHit) {
+    fill(255, 255, 0);
+    ambient(127, 127, 0);
+  } else {
+    fill(200, 100, 100);
+    ambient(100, 50, 50);
+  }
+  specular(255, 200, 200);
+  shininess(20.0);
+  
+  beginShape(TRIANGLES);
+  vertex(testTriangle[0]. x, testTriangle[0]. y, testTriangle[0]. z);
+  vertex(testTriangle[1].x, testTriangle[1].y, testTriangle[1].z);
+  vertex(testTriangle[2]. x, testTriangle[2]. y, testTriangle[2]. z);
+  endShape();
+  
+  popMatrix();
+}
+
+void drawHitVisualization() {
+  if (hitPoint != null && hitNormal != null) {
+    pushMatrix();
+    
+    // Draw hit point
+    translate(hitPoint.x, hitPoint.y, hitPoint.z);
+    fill(255, 0, 0);
+    noStroke();
+    sphere(5);
+    
+    // Draw normal
+    stroke(255, 255, 0);
+    strokeWeight(3);
+    line(0, 0, 0, hitNormal.x * 30, hitNormal.y * 30, hitNormal.z * 30);
+    strokeWeight(1);
+    
+    popMatrix();
+  }
 }
 
 PVector getRayDirection(float screenX, float screenY) {
@@ -115,8 +234,8 @@ PVector getRayDirection(float screenX, float screenY) {
 boolean raySphereIntersection(PVector rayOrigin, PVector rayDir, PVector center, float radius) {
   PVector oc = PVector.sub(rayOrigin, center);
   float a = rayDir.dot(rayDir);
-  float b = 2.0 * oc. dot(rayDir);
-  float c = oc.dot(oc) - radius * radius;
+  float b = 2.0 * oc.dot(rayDir);
+  float c = oc. dot(oc) - radius * radius;
   float discriminant = b * b - 4 * a * c;
   return discriminant >= 0;
 }
@@ -225,19 +344,23 @@ void drawHUD() {
   camera();
   fill(255);
   textAlign(LEFT, TOP);
-  text("3D Installation - Grade 5 (Phong Shader)", 10, 10);
+  text("3D Installation - Grade 5 Complete", 10, 10);
   text("", 10, 30);
   text("Controls:", 10, 50);
   text("SPACE - Toggle auto-rotation", 10, 70);
   text("R - Reset rotation", 10, 90);
   text("L - Toggle lights", 10, 110);
   text("B - Toggle bounding sphere", 10, 130);
-  text("P - Toggle Phong shader (vs Gouraud)", 10, 150);
+  text("P - Toggle Phong shader", 10, 150);
   text("MOUSE DRAG - Orbit camera", 10, 170);
   text("SCROLL - Zoom", 10, 190);
   text("", 10, 210);
-  text("Current shading:  " + (usePhongShader ? "PHONG (per-fragment)" : "GOURAUD (per-vertex)"), 10, 230);
-  text("Ray-sphere picking: " + (sphereHit ? "HIT!" : "no hit"), 10, 250);
+  text("Shading:  " + (usePhongShader ? "PHONG" : "GOURAUD"), 10, 230);
+  text("Ray-sphere:  " + (sphereHit ? "HIT" : "miss"), 10, 250);
+  text("Ray-triangle (Möller-Trumbore): " + (triangleHit ? "HIT!" : "miss"), 10, 270);
+  if (triangleHit) {
+    text("Hit point & normal visualized (red sphere + yellow line)", 10, 290);
+  }
   hint(ENABLE_DEPTH_TEST);
   perspective(PI/3.0, float(width)/height, 0.1, 1000);
 }
