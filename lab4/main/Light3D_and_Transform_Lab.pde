@@ -2,6 +2,8 @@ float angleRotation = 0;
 boolean autoRotate = true;
 boolean showLights = true;
 PShape model3D;
+PShader phongShader;
+boolean usePhongShader = false;
 
 // Camera controls
 float cameraDistance = 500;
@@ -26,6 +28,13 @@ void setup() {
     println("Note: model.obj not found.");
   }
   
+  // Load Phong shader
+  try {
+    phongShader = loadShader("phong.frag", "phong.vert");
+  } catch (Exception e) {
+    println("Note:  Shader files not found.  Create data folder with phong. vert and phong.frag");
+  }
+  
   sphereCenter = new PVector(-60, -50, 0);
   updateCamera();
 }
@@ -35,53 +44,62 @@ void draw() {
   
   camera(cameraX, cameraY, cameraZ, 0, 0, 0, 0, 1, 0);
   
-  if (showLights) {
-    ambientLight(30, 30, 40);
-    directionalLight(100, 100, 80, -0.5, 0.5, -1);
-    pointLight(200, 150, 100, 
-               200 * cos(angleRotation), -100, 200 * sin(angleRotation));
-    pointLight(100, 200, 150, -150, -50, 0);
-    spotLight(255, 255, 200, 0, -300, 0, 0, 1, 0, PI/4, 2);
+  // Apply or reset shader
+  if (usePhongShader && phongShader != null) {
+    shader(phongShader);
+    
+    // Set uniforms
+    phongShader.set("lightPosition", 200.0 * cos(angleRotation), -100.0, 200.0 * sin(angleRotation));
+    phongShader.set("lightColor", 1.0, 0.75, 0.5);
+    phongShader.set("ambientColor", 0.3, 0.3, 0.4);
+    phongShader.set("materialAmbient", 0.5, 0.5, 0.75);
+    phongShader.set("materialDiffuse", 0.7, 0.5, 0.4);
+    phongShader.set("materialSpecular", 1.0, 1.0, 0.8);
+    phongShader.set("shininess", 32.0);
+  } else {
+    resetShader();
+    
+    if (showLights) {
+      ambientLight(30, 30, 40);
+      directionalLight(100, 100, 80, -0.5, 0.5, -1);
+      pointLight(200, 150, 100, 
+                 200 * cos(angleRotation), -100, 200 * sin(angleRotation));
+      pointLight(100, 200, 150, -150, -50, 0);
+      spotLight(255, 255, 200, 0, -300, 0, 0, 1, 0, PI/4, 2);
+    }
   }
   
   if (autoRotate) {
     angleRotation += 0.01;
   }
   
-  // Mouse picking check
   checkMousePicking();
   
   drawHierarchicalObject();
   drawImportedModel();
+  
+  resetShader();
   drawBoundingSphere();
   drawHUD();
 }
 
 void checkMousePicking() {
-  // Create ray from camera through mouse position
   PVector rayOrigin = new PVector(cameraX, cameraY, cameraZ);
   PVector rayDir = getRayDirection(mouseX, mouseY);
-  
-  // Ray-sphere intersection
   sphereHit = raySphereIntersection(rayOrigin, rayDir, sphereCenter, sphereRadius);
 }
 
 PVector getRayDirection(float screenX, float screenY) {
-  // Convert screen coordinates to normalized device coordinates
   float x = (2.0 * screenX) / width - 1.0;
   float y = 1.0 - (2.0 * screenY) / height;
   
-  // Get view direction
   PVector dir = PVector.sub(new PVector(0, 0, 0), new PVector(cameraX, cameraY, cameraZ));
-  
-  // Get right and up vectors
   PVector up = new PVector(0, 1, 0);
   PVector right = dir.cross(up);
   right.normalize();
   PVector camUp = right.cross(dir);
   camUp.normalize();
   
-  // Calculate ray direction
   float fov = PI / 3.0;
   float aspectRatio = float(width) / height;
   float tanFov = tan(fov / 2.0);
@@ -97,10 +115,9 @@ PVector getRayDirection(float screenX, float screenY) {
 boolean raySphereIntersection(PVector rayOrigin, PVector rayDir, PVector center, float radius) {
   PVector oc = PVector.sub(rayOrigin, center);
   float a = rayDir.dot(rayDir);
-  float b = 2.0 * oc.dot(rayDir);
+  float b = 2.0 * oc. dot(rayDir);
   float c = oc.dot(oc) - radius * radius;
   float discriminant = b * b - 4 * a * c;
-  
   return discriminant >= 0;
 }
 
@@ -183,7 +200,7 @@ void drawImportedModel() {
     scale(20);
     
     if (sphereHit) {
-      fill(255, 255, 0); // Highlight when hit
+      fill(255, 255, 0);
       ambient(127, 127, 0);
     } else {
       fill(180, 120, 80);
@@ -208,20 +225,19 @@ void drawHUD() {
   camera();
   fill(255);
   textAlign(LEFT, TOP);
-  text("3D Installation - Grade 4 Complete", 10, 10);
+  text("3D Installation - Grade 5 (Phong Shader)", 10, 10);
   text("", 10, 30);
   text("Controls:", 10, 50);
   text("SPACE - Toggle auto-rotation", 10, 70);
   text("R - Reset rotation", 10, 90);
   text("L - Toggle lights", 10, 110);
   text("B - Toggle bounding sphere", 10, 130);
-  text("MOUSE DRAG - Orbit camera", 10, 150);
-  text("SCROLL - Zoom", 10, 170);
-  text("", 10, 190);
-  text("Features:", 10, 210);
-  text("- Ray-sphere picking:  " + (sphereHit ? "HIT!" : "no hit"), 10, 230);
-  text("- Bounding sphere visualization", 10, 250);
-  text("- Interactive orbit camera", 10, 270);
+  text("P - Toggle Phong shader (vs Gouraud)", 10, 150);
+  text("MOUSE DRAG - Orbit camera", 10, 170);
+  text("SCROLL - Zoom", 10, 190);
+  text("", 10, 210);
+  text("Current shading:  " + (usePhongShader ? "PHONG (per-fragment)" : "GOURAUD (per-vertex)"), 10, 230);
+  text("Ray-sphere picking: " + (sphereHit ? "HIT!" : "no hit"), 10, 250);
   hint(ENABLE_DEPTH_TEST);
   perspective(PI/3.0, float(width)/height, 0.1, 1000);
 }
@@ -231,6 +247,7 @@ void keyPressed() {
   if (key == 'r' || key == 'R') angleRotation = 0;
   if (key == 'l' || key == 'L') showLights = !showLights;
   if (key == 'b' || key == 'B') showBoundingSphere = !showBoundingSphere;
+  if (key == 'p' || key == 'P') usePhongShader = !usePhongShader;
 }
 
 void mouseDragged() {
